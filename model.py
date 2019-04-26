@@ -151,21 +151,21 @@ class CNNSimpleBase(NNBase):
 
         self.features = nn.Sequential(
             # conv1 block: 3x conv 3x3
-            nn.Conv2d(input_channel, 12, kernel_size=8, stride=4, padding=3),
+            nn.Conv2d(input_channel, 64, kernel_size=7, stride=4, padding=3),
             nn.ReLU(inplace=True),
             # max pooling 1/2
             nn.MaxPool2d(kernel_size=2, stride=2, padding=1),
             # conv2 block: simple bottleneck
-            nn.Conv2d(12, 24, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(64, 64, kernel_size=1, stride=1, padding=0),
             nn.ReLU(inplace=True),
-            nn.Conv2d(24, 36, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(36, 36, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(64, 256, kernel_size=1, stride=1, padding=0),
             nn.ReLU(inplace=True),
             # max pooling 1/2
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             # conv4 block: conv 3x3
-            nn.Conv2d(36, hidden_size, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(256, hidden_size, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
         )
 

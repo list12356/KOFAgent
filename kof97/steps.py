@@ -66,8 +66,6 @@ def start_game(frame_ratio):
 def next_stage(frame_ratio):
     return [{"wait": int(360/frame_ratio), "actions": [Actions.P1_BUTTON1]},
             {"wait": int(360/frame_ratio), "actions": [Actions.P1_BUTTON1]},
-            {"wait": int(360/frame_ratio), "actions": [Actions.P1_BUTTON1]},
-            {"wait": int(360/frame_ratio), "actions": [Actions.P1_BUTTON1]},
             {"wait": int(60/frame_ratio), "actions": [Actions.P1_BUTTON1]}
         ]
 

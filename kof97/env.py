@@ -17,11 +17,15 @@ def add_rewards(old_data, new_data):
 def setup_memory_addresses():
     return {
         "round": Address('0x10A7F1', 'u8'),
+        "stage": Address('0x10A798', 'u8'),
         "start": Address('0x1081E2', 'u8'),
         "winsP1": Address('0x10A85B', 'u8'),
-        "winsP2": Address('0x10A84a', 'u8'),
+        "winsP2": Address('0x10A84A', 'u8'),
         "healthP1": Address('0x108239', 'u8'),
-        "healthP2": Address('0x108439', 'u8')
+        "healthP2": Address('0x108439', 'u8'),
+        "positionP1": Address('0x108118', 'u8'),
+        "positionP2": Address('0x108318', 'u8'),
+        "powerP1": Address('0x1082E3', 'u8')
     }
 
 
@@ -45,6 +49,7 @@ class Environment(object):
         self.stage_done = False
         self.game_done = False
         self.round = 0
+        self.stage = 0
 
     # Runs a set of action steps over a series of time steps
     # Used for transitioning the emulator through non-learnable gameplay, aka. title screens, character selects
@@ -94,6 +99,8 @@ class Environment(object):
             return self.next_round()
         else:
             raise EnvironmentError("Reset called while gameplay still running")
+            # do hard reset
+            # return self.new_game()
 
     # To be called when a round finishes
     # Performs the necessary steps to take the agent to the next round of gameplay
@@ -114,6 +121,7 @@ class Environment(object):
         self.round_done = False
         self.stage_done = False
         self.round = 0
+        self.stage += 1
         return self.wait_for_fight_start()
 
     def new_game(self):
@@ -126,17 +134,8 @@ class Environment(object):
         self.stage_done = False
         self.game_done = False
         self.round = 0
+        self.stage = 0
         return self.wait_for_fight_start()
-
-    # Steps the emulator along until the screen goes black at the very end of a game
-    def wait_for_continue(self):
-        data = self.emu.step([])
-        if self.frames_per_step == 1:
-            while data["frame"].sum() != 0:
-                data = self.emu.step([])
-        else:
-            while data["frame"][0].sum() != 0:
-                data = self.emu.step([])
 
     # Checks whether the round or game has finished
     def check_done(self, data):
@@ -179,20 +178,26 @@ class Environment(object):
     def step(self, action):
         if self.started:
             if not self.round_done and not self.stage_done and not self.game_done:
-                if action < 17:
+                info = {}
+                if action < 18):
                     actions = normal_actions[action]
                     data = self.gather_frames(actions)
                     self.check_done(data)
-                    return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done
+                    info["stage"] = self.stage
+                    info["positionP1"] = data["positionP1"]
+                    info["positionP2"] = data["positionP2"]
+                    info["powerP1"] = data["powerP1"]
+                    return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done, info
                 else:
-                    steps = step_actions[action - 17]
-                    steps = step_actions_old[action - 17]
+                    steps = step_actions[action - 18]
                     data = {}
+                    frames = []
                     for action in steps:
                         if self.round_done or self.stage_done or self.game_done:
                             break
-                        # data = self.emu.step_special([action.value])
                         data = self.emu.step([action.value for action in step_dict[action]])
+                        if len(frames) < self.frames_per_step:
+                            frames.append(data["frame"])
                         self.check_done(data)
 
                     p1_diff = (self.expected_health["P1"] - data["healthP1"])
@@ -203,16 +208,18 @@ class Environment(object):
                         "P1": (p2_diff-p1_diff),
                         "P2": (p1_diff-p2_diff)
                     }
+                    if self.round_done:
+                        rewards = rewards = {"P1": 0, "P2": 0}
+
                     data["rewards"] = rewards
-
-                    # frames = [data["frame"]]
-                    # for i in range(self.frames_per_step - 1):
-                    #     data = add_rewards(data, self.sub_step(actions))
-                    #     frames.append(data["frame"])
-                    # data["frame"] = frames[0] if self.frames_per_step == 1 else frames
-
-                    return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done
+                    data["frame"] = frames
+                    info["stage"] = self.stage
+                    info["positionP1"] = data["positionP1"]
+                    info["positionP2"] = data["positionP2"]
+                    info["powerP1"] = data["powerP1"]
+                    return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done, info
             else:
+                # if self.round_done or self.stage_done:
                 raise EnvironmentError("Attempted to step while characters are not fighting")
         else:
             raise EnvironmentError("Start must be called before stepping")

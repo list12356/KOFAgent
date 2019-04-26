@@ -59,8 +59,8 @@ class Emulator(object):
         pipes_path = f"{os.path.dirname(os.path.abspath(__file__))}/mame/pipes"
         self.actionPipe = Pipe(env_id, "action", 'w', pipes_path)
         self.actionPipe.open(self.console)
-        self.specialActionPipe = Pipe(env_id, "specialaction", 'w', pipes_path)
-        self.specialActionPipe.open(self.console)
+        # self.specialActionPipe = Pipe(env_id, "specialaction", 'w', pipes_path)
+        # self.specialActionPipe.open(self.console)
 
         self.dataPipe = DataPipe(env_id, self.screenDims, bitmap_format, memory_addresses, pipes_path)
         self.dataPipe.open(self.console)
@@ -134,13 +134,6 @@ class Emulator(object):
                                     'releaseQueue[i]=nil; ' \
                                 'end; ' \
                                 '' + self.dataPipe.get_lua_string() + '' \
-                                'special_actions = ' + self.specialActionPipe.get_lua_string() + '' \
-                                'if (string.len(special_actions) > 1) then ' \
-                                    'for action in string.gmatch(special_actions, "[^+]+") do ' \
-                                        'actionFunc = loadstring(action); ' \
-                                        'actionFunc(); ' \
-                                    'end; ' \
-                                'end; ' \
                                 'actions = ' + self.actionPipe.get_lua_string() + '' \
                                 'if (string.len(actions) > 1) then ' \
                                     'for action in string.gmatch(actions, "[^+]+") do ' \
@@ -154,33 +147,27 @@ class Emulator(object):
                         'end'
         self.console.writeln(pipe_data_func)
         self.console.writeln('emu.register_frame_done(pipeData, "data")')
-        # 'for i=1,#releaseSpecialQueue do ' \
-        #     'releaseSpecialQueue[i](); ' \
-        #     'releaseSpecialQueue[i]=nil; ' \
-        # 'end; ' \
-        # 'special_actions = ' + self.specialActionPipe.get_lua_string() + '' \
-        # 'if (string.len(special_actions) > 1) then ' \
-        #     'for action in string.gmatch(special_actions, "[^+]+") do ' \
-        #         'actionFunc = loadstring(action..":set_value(1)"); ' \
-        #         'actionFunc(); ' \
-        #         'releaseFunc = loadstring(action..":set_value(0)"); ' \
-        #         'table.insert(releaseSpecialQueue, releaseFunc); ' \
-        #     'end; ' \
-        # 'end; ' \
+                                # 'special_actions = ' + self.specialActionPipe.get_lua_string() + '' \
+                                # 'if (string.len(special_actions) > 1) then ' \
+                                #     'for action in string.gmatch(special_actions, "[^+]+") do ' \
+                                #         'actionFunc = loadstring(action); ' \
+                                #         'actionFunc(); ' \
+                                #     'end; ' \
+                                # 'end; ' \
 
     # Steps the emulator along one time step
     def step(self, actions):
         data = self.dataPipe.read_data(timeout=10)  # gathers the frame data and memory address values
         action_string = actions_to_string(actions)
         self.actionPipe.writeln(action_string)  # sends the actions for the game to perform before the next step
-        self.specialActionPipe.writeln('')  # sends the actions for the game to perform before the next step
+        # self.specialActionPipe.writeln('')  # sends the actions for the game to perform before the next step
         return data
     
     def step_special(self, actions):
         data = self.dataPipe.read_data(timeout=10)  # gathers the frame data and memory address values
         action_string = actions_to_string(actions)
         self.actionPipe.writeln('')
-        self.specialActionPipe.writeln(action_string)  # sends the actions for the game to perform before the next step
+        # self.specialActionPipe.writeln(action_string)  # sends the actions for the game to perform before the next step
         return data
 
     # Testing
@@ -189,3 +176,4 @@ class Emulator(object):
         self.console.close()
         self.actionPipe.close()
         self.dataPipe.close()
+        # self.specialActionPipe.close()

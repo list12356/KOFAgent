@@ -1,4 +1,4 @@
-from env import SFEnvironmentDummy
+from kof97.vec_env import KOFEnvironmentDummy
 from policy import Policy
 from model import CNNBase, CNNSimpleBase
 import torch
@@ -11,7 +11,7 @@ num_steps = 512
 num_process = 1
 num_mini_batch = 4
 device = torch.device("cuda:0")
-env = SFEnvironmentDummy(device)
+env = KOFEnvironmentDummy(device)
 policy = Policy(env.observation_space.shape, env.action_space, base=CNNSimpleBase)
 policy.to(device)
 
@@ -28,22 +28,24 @@ rollouts.to(device)
 epoch = 0
 episode = 0
 episode_rewards = []
+episode_stages = []
 running_rewards = None
 
+
+logger = open("./logs/kof_ppo.log", 'w+')
 
 while(True):
 
     print_epoch = False
     for step in range(num_steps):
-        import pdb; pdb.set_trace()
         with torch.no_grad():
             value, action, action_log_probs, rnn_hxs = policy.step(rollouts.obs[step])
         
         frames, reward, done, info = env.step(action)
-        # masks = torch.FloatTensor(
-        #             [[0.0] if done_ else [1.0] for done_ in done])
         masks = torch.FloatTensor(
-                    [[1.0]for d in done])
+                    [[0.0] if done_ else [1.0] for done_ in done])
+        # masks = torch.FloatTensor(
+        #             [[1.0]for d in done])
         bad_masks = torch.FloatTensor(
             [[0.0] for d in done])
         rollouts.insert(frames, rnn_hxs, action,
@@ -51,6 +53,7 @@ while(True):
         if 'r' in info.keys():
             episode += 1
             episode_rewards.append(info['r'])
+            episode_stages.append(info['stage'])
             if running_rewards != None:
                 running_rewards = info['r'] * 0.01 + running_rewards
             else:
@@ -70,8 +73,17 @@ while(True):
     rollouts.after_update()
 
     if print_epoch:
-        print("Episode {}, loss: {:.5f}, reward mean/min/max: {:.3f}/{:.3f}/{:.3f},  running: {:.3f}".format(
-                episode, action_loss_epoch, np.mean(episode_rewards), np.min(episode_rewards), np.max(episode_rewards), running_rewards))
+        logs = "Episode: {}, loss: {:.5f}, reward mean/min/max: {:.3f}/{:.3f}/{:.3f}, current/running: {:.3f}/{:.3f}, stage mean/min/max: {:.3f}/{:.3f}/{:.3f}, current: {:.3f}"\
+            .format(episode, action_loss_epoch, np.mean(episode_rewards), np.min(episode_rewards)\
+            , np.max(episode_rewards), episode_rewards[-1], running_rewards, \
+            np.mean(episode_stages), np.min(episode_stages), np.max(episode_stages), episode_stages[-1])
+        print(logs)
+        logger.write(logs + '\n')
+        logger.flush()
     
+    if epoch % 100 == 0:
+        torch.save(policy, "./saved_models/kof_ppo/" + str(epoch) + ".policy")
+        torch.save(policy.base, "./saved_models/kof_ppo/" + str(epoch) + ".base")
+
     epoch = epoch + 1
 

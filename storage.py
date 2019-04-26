@@ -28,6 +28,9 @@ class RolloutStorage(object):
         # Masks that indicate whether it's a true terminal state
         # or time limit end state
         self.bad_masks = torch.ones(num_steps + 1, num_processes, 1)
+        
+        self.power = torch.zeros(num_steps + 1, num_processes, 3)
+        self.position = torch.zeros(num_steps + 1, num_processes, 2)
 
         self.num_steps = num_steps
         self.step = 0

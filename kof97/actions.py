@@ -79,6 +79,8 @@ class SActions(Enum):
 normal_actions = [
 
 [Actions.P1_BUTTON1, Actions.P1_BUTTON2],
+[Actions.P1_BUTTON3, Actions.P1_BUTTON4],
+[Actions.P1_BUTTON1, Actions.P1_BUTTON2, Actions.P1_BUTTON3],
 [Actions.P1_DOWN],
 [Actions.P1_DOWN, Actions.P1_RIGHT],
 [Actions.P1_UP],
@@ -108,10 +110,46 @@ step_dict = {
     'D': [Actions.P1_BUTTON4],
 }
 
-step_actions= [
-    [SActions.D1, SActions.L1, SActions.D0, SActions.L0, SActions.C1, SActions.C0],
-]
+# step_actions= [
+#     [SActions.D1, SActions.L1, SActions.D0, SActions.L0, SActions.C1, SActions.C0],
+# ]
 
-step_actions_old= [
+step_actions= [
     [2, 1, 4, 'C'],
+    [2, 1, 4, 'A'],
+    
+    [2, 3, 6, 'C'],
+    [2, 3, 6, 'A'],
+    
+    [6, 3, 2, 3, 6, 'A'],
+    [6, 3, 2, 3, 6, 'C'],
+    
+    [6, 3, 2, 1, 4, 'B'],
+    [6, 3, 2, 1, 4, 'D'],
+
+    [4, 1, 2, 3, 6, 'A'],
+    [4, 1, 2, 3, 6, 'C'],
+
+    [2, 3, 6, 3, 2, 1, 4, 'A'],
+    [2, 1, 4, 1, 2, 3, 6, 'A'],
+
+
+
+    # [2, 1, 4, 'C'],
+    # [2, 1, 4, 'A'],
+    
+    # [2, 3, 6, 'C'],
+    # [2, 3, 6, 'A'],
+    
+    [4, 1, 2, 1, 4, 'A'],
+    [4, 1, 2, 1, 4, 'C'],
+    
+    [4, 1, 2, 3, 6, 'B'],
+    [4, 1, 2, 3, 6, 'D'],
+
+    [6, 3, 2, 1, 4, 'A'],
+    [6, 3, 2, 1, 4, 'C'],
+
+    # [2, 3, 6, 3, 2, 1, 4, 'A'],
+    # [2, 1, 4, 1, 2, 3, 6, 'A'],
 ]

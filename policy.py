@@ -51,6 +51,7 @@ class Policy(nn.Module):
     def step(self, inputs, rnn_hxs=None, masks=None, deterministic=False):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
 
+        # for multi discrete
         if isinstance(self.dist, list):
             dist = [d(actor_features) for d in self.dist]
             if deterministic:
@@ -94,4 +95,3 @@ class Policy(nn.Module):
             dist_entropy = dist.entropy().mean()
 
         return value, action_log_probs, dist_entropy, rnn_hxs
-
