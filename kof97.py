@@ -24,7 +24,7 @@ import numpy as np
 while(True):
     # action = np.random.randint(17)
     action = 17 + np.random.randint(16)
-    frame, reward, round_done, stage_done, game_done = env.step(action)
+    frame, reward, round_done, stage_done, game_done, info = env.step(action)
     import pdb; pdb.set_trace()
     print('{}, {}'.format(reward['P1'], reward['P2']))
     info = {}

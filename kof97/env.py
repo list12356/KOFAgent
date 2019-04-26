@@ -23,8 +23,8 @@ def setup_memory_addresses():
         "winsP2": Address('0x10A84A', 'u8'),
         "healthP1": Address('0x108239', 'u8'),
         "healthP2": Address('0x108439', 'u8'),
-        "positionP1": Address('0x108118', 'u8'),
-        "positionP2": Address('0x108318', 'u8'),
+        "positionP1": Address('0x108118', 'u16'),
+        "positionP2": Address('0x108318', 'u16'),
         "powerP1": Address('0x1082E3', 'u8')
     }
 
@@ -179,7 +179,7 @@ class Environment(object):
         if self.started:
             if not self.round_done and not self.stage_done and not self.game_done:
                 info = {}
-                if action < 18):
+                if action < 18:
                     actions = normal_actions[action]
                     data = self.gather_frames(actions)
                     self.check_done(data)
