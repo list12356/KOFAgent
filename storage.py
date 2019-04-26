@@ -45,17 +45,21 @@ class RolloutStorage(object):
         self.actions = self.actions.to(device)
         self.masks = self.masks.to(device)
         self.bad_masks = self.bad_masks.to(device)
+        self.power = self.power.to(device)
+        self.position = self.position.to(device)
 
     def insert(self, obs, recurrent_hidden_states, actions, action_log_probs,
-               value_preds, rewards, masks, bad_masks):
+               value_preds, rewards, masks, bad_masks, power, position):
         self.obs[self.step + 1].copy_(obs)
         if not (recurrent_hidden_states is None):
-            self.recurrent_hidden_states[self.step +
-                                        1].copy_(recurrent_hidden_states)
+            self.recurrent_hidden_states[self.step + 1].\
+                copy_(recurrent_hidden_states)
         self.actions[self.step].copy_(actions)
         self.action_log_probs[self.step].copy_(action_log_probs)
         self.value_preds[self.step].copy_(value_preds)
         self.rewards[self.step].copy_(rewards)
+        self.power[self.step + 1].copy_(power)
+        self.position[self.step + 1].copy_(position)
         self.masks[self.step + 1].copy_(masks)
         self.bad_masks[self.step + 1].copy_(bad_masks)
 
@@ -63,6 +67,8 @@ class RolloutStorage(object):
 
     def after_update(self):
         self.obs[0].copy_(self.obs[-1])
+        self.power[0].copy_(self.power[-1])
+        self.position[0].copy_(self.position[-1])
         self.recurrent_hidden_states[0].copy_(self.recurrent_hidden_states[-1])
         self.masks[0].copy_(self.masks[-1])
         self.bad_masks[0].copy_(self.bad_masks[-1])
@@ -130,6 +136,8 @@ class RolloutStorage(object):
             drop_last=True)
         for indices in sampler:
             obs_batch = self.obs[:-1].view(-1, *self.obs.size()[2:])[indices]
+            power_batch = self.power[:-1].view(-1, self.power.size(-1))[indices]
+            position_batch = self.position[:-1].view(-1, self.position.size(-1))[indices]
             recurrent_hidden_states_batch = self.recurrent_hidden_states[:-1].view(
                 -1, self.recurrent_hidden_states.size(-1))[indices]
             actions_batch = self.actions.view(-1,
@@ -145,7 +153,8 @@ class RolloutStorage(object):
                 adv_targ = advantages.view(-1, 1)[indices]
 
             yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+                value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ, \
+                power_batch, position_batch
     
     def recurrent_generator(self, advantages, num_mini_batch):
         num_processes = self.rewards.size(1)

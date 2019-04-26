@@ -174,7 +174,7 @@ class CNNSimpleBase(NNBase):
 
         self.train()
 
-    def forward(self, inputs, rnn_hxs, masks):
+    def forward(self, inputs, power, position, rnn_hxs, masks):
         x = self.features(inputs)
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)

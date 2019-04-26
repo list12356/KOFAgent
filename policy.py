@@ -14,19 +14,21 @@ class Policy(nn.Module):
             raise NotImplementedError
 
         self.base = base(obs_shape[0], **base_kwargs)
+        self.feature_size = 256
+        
 
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
-            self.dist = Categorical(self.base.output_size, num_outputs)
+            self.dist = Categorical(self.feature_size, num_outputs)
         elif action_space.__class__.__name__ == "Box":
             num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(self.base.output_size, num_outputs)
+            self.dist = DiagGaussian(self.feature_size, num_outputs)
         elif action_space.__class__.__name__ == "MultiBinary":
             num_outputs = action_space.shape[0]
-            self.dist = Bernoulli(self.base.output_size, num_outputs)
+            self.dist = Bernoulli(self.feature_size, num_outputs)
         elif action_space.__class__.__name__ == "MultiDiscrete":
             num_outputs = action_space.nvec.tolist()
-            self.dist = [Categorical(self.base.output_size, num_output) for num_output in num_outputs] 
+            self.dist = [Categorical(self.feature_size, num_output) for num_output in num_outputs] 
         else:
             raise NotImplementedError
 
@@ -48,8 +50,11 @@ class Policy(nn.Module):
     def forward(self, inputs, rnn_hxs, masks):
         raise NotImplementedError
 
-    def step(self, inputs, rnn_hxs=None, masks=None, deterministic=False):
+    def step(self, inputs, power, position, rnn_hxs=None, masks=None, deterministic=False):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+
+        actor_features = torch.cat((actor_features, power, position), 1)
+        actor_features = self.embedding(actor_features)
 
         # for multi discrete
         if isinstance(self.dist, list):
@@ -80,8 +85,11 @@ class Policy(nn.Module):
         value, _, _ = self.base(inputs, rnn_hxs, masks)
         return value
 
-    def evaluate_actions(self, inputs, rnn_hxs, masks, action):
+    def evaluate_actions(self, inputs, power, position, rnn_hxs, masks, action):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+
+        actor_features = torch.cat((actor_features, power, position), 1)
+        actor_features = self.embedding(actor_features)
         
         if isinstance(self.dist, list):
             dist = [d(actor_features) for d in self.dist]

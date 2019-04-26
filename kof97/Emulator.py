@@ -163,12 +163,12 @@ class Emulator(object):
         # self.specialActionPipe.writeln('')  # sends the actions for the game to perform before the next step
         return data
     
-    def step_special(self, actions):
-        data = self.dataPipe.read_data(timeout=10)  # gathers the frame data and memory address values
-        action_string = actions_to_string(actions)
-        self.actionPipe.writeln('')
-        # self.specialActionPipe.writeln(action_string)  # sends the actions for the game to perform before the next step
-        return data
+    # def step_special(self, actions):
+    #     data = self.dataPipe.read_data(timeout=10)  # gathers the frame data and memory address values
+    #     action_string = actions_to_string(actions)
+    #     self.actionPipe.writeln('')
+    #     # self.specialActionPipe.writeln(action_string)  # sends the actions for the game to perform before the next step
+    #     return data
 
     # Testing
     # Safely stops all of the processes related to running the emulator

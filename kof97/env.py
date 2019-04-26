@@ -3,16 +3,6 @@ from kof97.steps import *
 from kof97.actions import *
 from kof97.Emulator import Emulator
 
-
-# Combines the data of multiple time steps
-def add_rewards(old_data, new_data):
-    for k in old_data.keys():
-        if "rewards" in k:
-            for player in old_data[k]:
-                new_data[k][player] += old_data[k][player]
-    return new_data
-
-
 # Returns the list of memory addresses required to train on Street Fighter
 def setup_memory_addresses():
     return {
@@ -69,18 +59,24 @@ class Environment(object):
         
         # self.run_steps(set_difficulty(self.frame_ratio, self.difficulty))
         self.run_steps(start_game(self.frame_ratio))
-        frames = self.wait_for_fight_start()
         self.started = True
-        return frames
+        return self.wait_for_fight_start()
 
     # Observes the game and waits for the fight to start
     def wait_for_fight_start(self):
         data = self.emu.step([])
         while data["start"] == 0x08:
             data = self.emu.step([])
-        self.expected_health = {"P1": data["healthP1"], "P2": data["healthP2"]}
-        data = self.gather_frames([])
-        return data["frame"]
+        frames = []
+        for i in range(self.frames_per_step):
+            data = self.emu.step([])
+            frames.append(data['frame'])
+        info = {}
+        info["stage"] = self.stage
+        info["positionP1"] = data["positionP1"]
+        info["positionP2"] = data["positionP2"]
+        info["powerP1"] = data["powerP1"]
+        return frames, info
     
     # wait until the next stage
     def wait_for_stage(self):
@@ -108,7 +104,7 @@ class Environment(object):
         self.round_done = False
         self.wait_for_stage()
         # import pdb; pdb.set_trace()
-        self.expected_health = {"P1": 0, "P2": 0}
+        self.expected_health = {"P1": 0x67, "P2": 0x67}
         return self.wait_for_fight_start()
 
     # To be called when a game finishes
@@ -116,7 +112,7 @@ class Environment(object):
     def next_stage(self):
         self.run_steps(next_stage(self.frame_ratio))
         self.wait_for_stage()
-        self.expected_health = {"P1": 0, "P2": 0}
+        self.expected_health = {"P1": 0x67, "P2": 0x67}
         self.expected_wins = {"P1": 0, "P2": 0}
         self.round_done = False
         self.stage_done = False
@@ -128,7 +124,7 @@ class Environment(object):
         # self.wait_for_stage()
         self.run_steps(new_game(self.frame_ratio))
         self.run_steps(start_game(self.frame_ratio))
-        self.expected_health = {"P1": 0, "P2": 0}
+        self.expected_health = {"P1": 0x67, "P2": 0x67}
         self.expected_wins = {"P1": 0, "P2": 0}
         self.round_done = False
         self.stage_done = False
@@ -147,77 +143,49 @@ class Environment(object):
             if data["winsP2"] == 2:
                 self.game_done = True
 
-    # Collects the specified amount of frames the agent requires before choosing an action
-    def gather_frames(self, actions):
-        data = self.sub_step(actions)
-        frames = [data["frame"]]
-        for i in range(self.frames_per_step - 1):
-            data = add_rewards(data, self.sub_step(actions))
-            frames.append(data["frame"])
-        data["frame"] = frames[0] if self.frames_per_step == 1 else frames
-        return data
-
-    # Steps the emulator along by one time step and feeds in any actions that require pressing
-    # Takes the data returned from the step and updates book keeping variables
-    def sub_step(self, actions):
-        data = self.emu.step([action.value for action in actions])
-
-        p1_diff = (self.expected_health["P1"] - data["healthP1"])
-        p2_diff = (self.expected_health["P2"] - data["healthP2"])
-        self.expected_health = {"P1": data["healthP1"], "P2": data["healthP2"]}
-
-        rewards = {
-            "P1": (p2_diff-p1_diff),
-            "P2": (p1_diff-p2_diff)
-        }
-
-        data["rewards"] = rewards
-        return data
-
     # Steps the emulator along by the requested amount of frames required for the agent to provide actions
     def step(self, action):
         if self.started:
             if not self.round_done and not self.stage_done and not self.game_done:
                 info = {}
+                data = {}
+                frames = []
                 if action < 18:
                     actions = normal_actions[action]
-                    data = self.gather_frames(actions)
-                    self.check_done(data)
-                    info["stage"] = self.stage
-                    info["positionP1"] = data["positionP1"]
-                    info["positionP2"] = data["positionP2"]
-                    info["powerP1"] = data["powerP1"]
-                    return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done, info
+                    data = self.emu.step([action.value for action in actions])
+                    while len(frames) < self.frames_per_step:
+                        data = self.emu.step([action.value for action in actions])
+                        frames.append(data["frame"])
                 else:
                     steps = step_actions[action - 18]
-                    data = {}
-                    frames = []
                     for action in steps:
-                        if self.round_done or self.stage_done or self.game_done:
-                            break
                         data = self.emu.step([action.value for action in step_dict[action]])
                         if len(frames) < self.frames_per_step:
                             frames.append(data["frame"])
-                        self.check_done(data)
 
-                    p1_diff = (self.expected_health["P1"] - data["healthP1"])
-                    p2_diff = (self.expected_health["P2"] - data["healthP2"])
-                    self.expected_health = {"P1": data["healthP1"], "P2": data["healthP2"]}
+                self.check_done(data)
+                p1_diff = (self.expected_health["P1"] - data["healthP1"])
+                p2_diff = (self.expected_health["P2"] - data["healthP2"])
+                self.expected_health = {"P1": data["healthP1"], "P2": data["healthP2"]}
 
-                    rewards = {
-                        "P1": (p2_diff-p1_diff),
-                        "P2": (p1_diff-p2_diff)
-                    }
-                    if self.round_done:
-                        rewards = rewards = {"P1": 0, "P2": 0}
+                rewards = {
+                    "P1": (p2_diff-p1_diff),
+                    "P2": (p1_diff-p2_diff)
+                }
+                # ad-hoc, since the reward may be hacked
+                if self.round_done:
+                    rewards = {"P1": 0, "P2": 0}
 
-                    data["rewards"] = rewards
-                    data["frame"] = frames
-                    info["stage"] = self.stage
-                    info["positionP1"] = data["positionP1"]
-                    info["positionP2"] = data["positionP2"]
-                    info["powerP1"] = data["powerP1"]
-                    return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done, info
+                if abs(p2_diff-p1_diff) > 100:
+                    rewards = {"P1": 0, "P2": 0}
+
+                data["rewards"] = rewards
+                data["frame"] = frames
+                info["stage"] = self.stage
+                info["positionP1"] = data["positionP1"]
+                info["positionP2"] = data["positionP2"]
+                info["powerP1"] = data["powerP1"]
+                return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done, info
             else:
                 # if self.round_done or self.stage_done:
                 raise EnvironmentError("Attempted to step while characters are not fighting")

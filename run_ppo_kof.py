@@ -21,9 +21,18 @@ algorithm = PPO(policy, clip_param =0.2, ppo_epoch=4, num_mini_batch=num_mini_ba
 rollouts = RolloutStorage(num_steps, num_process, env.observation_space.shape, env.action_space,
                             policy.recurrent_hidden_state_size)
 
-frames = env.start()
+frames, infos = env.reset()
+power = torch.FloatTensor(
+    [[1.0 if x + 1 <= info["powerP1"] else 0.0 for x in range(3)] for info in infos]
+)
+position = torch.FloatTensor(
+    [[info['positionP1'], info['positionP2']] for info in infos]
+)
+
 
 rollouts.obs[0].copy_(frames)
+rollouts.power[0].copy_(power)
+rollouts.position[0].copy_(position)
 rollouts.to(device)
 epoch = 0
 episode = 0
@@ -39,26 +48,30 @@ while(True):
     print_epoch = False
     for step in range(num_steps):
         with torch.no_grad():
-            value, action, action_log_probs, rnn_hxs = policy.step(rollouts.obs[step])
+            value, action, action_log_probs, rnn_hxs = policy.step(rollouts.obs[step], rollouts.power[step], rollouts.position[step])
         
-        frames, reward, done, info = env.step(action)
+        frames, reward, done, infos = env.step(action)
         masks = torch.FloatTensor(
                     [[0.0] if done_ else [1.0] for done_ in done])
         # masks = torch.FloatTensor(
         #             [[1.0]for d in done])
         bad_masks = torch.FloatTensor(
             [[0.0] for d in done])
-        rollouts.insert(frames, rnn_hxs, action,
-                                action_log_probs, value, reward, masks, bad_masks)
-        if 'r' in info.keys():
-            episode += 1
-            episode_rewards.append(info['r'])
-            episode_stages.append(info['stage'])
-            if running_rewards != None:
-                running_rewards = info['r'] * 0.01 + running_rewards
-            else:
-                running_rewards = info['r']
-            print_epoch = True
+            
+        rollouts.insert(frames, rnn_hxs, action, action_log_probs, \
+                    value, reward, masks, bad_masks, power, position)
+                    
+        for info in infos:
+            if 'r' in info.keys():
+                episode += 1
+                episode_rewards.append(info['r'])
+                episode_stages.append(info['stage'])
+                if running_rewards != None:
+                    running_rewards = info['r'] * 0.01 + running_rewards
+                else:
+                    running_rewards = info['r']
+                print_epoch = True
+                break
     
     with torch.no_grad():
         next_value = policy.get_value(
