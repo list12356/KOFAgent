@@ -14,7 +14,7 @@ class Policy(nn.Module):
             raise NotImplementedError
 
         self.base = base(obs_shape[0], **base_kwargs)
-        self.feature_size = 256
+        self.feature_size = self.base.output_size
         
 
         if action_space.__class__.__name__ == "Discrete":
@@ -51,10 +51,7 @@ class Policy(nn.Module):
         raise NotImplementedError
 
     def step(self, inputs, power, position, rnn_hxs=None, masks=None, deterministic=False):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
-
-        actor_features = torch.cat((actor_features, power, position), 1)
-        actor_features = self.embedding(actor_features)
+        value, actor_features, rnn_hxs = self.base(inputs, power, position, rnn_hxs, masks)
 
         # for multi discrete
         if isinstance(self.dist, list):
@@ -81,15 +78,12 @@ class Policy(nn.Module):
 
         return value, action, action_log_probs, rnn_hxs
     
-    def get_value(self, inputs, rnn_hxs, masks):
-        value, _, _ = self.base(inputs, rnn_hxs, masks)
+    def get_value(self, inputs, power, position, rnn_hxs, masks):
+        value, _, _ = self.base(inputs, power, position, rnn_hxs, masks)
         return value
 
     def evaluate_actions(self, inputs, power, position, rnn_hxs, masks, action):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
-
-        actor_features = torch.cat((actor_features, power, position), 1)
-        actor_features = self.embedding(actor_features)
+        value, actor_features, rnn_hxs = self.base(inputs, power, position, rnn_hxs, masks)
         
         if isinstance(self.dist, list):
             dist = [d(actor_features) for d in self.dist]

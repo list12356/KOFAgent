@@ -12,10 +12,12 @@ num_process = 1
 num_mini_batch = 4
 use_meta = False
 device = torch.device("cuda:0")
-env = KOFEnvironmentDummy(device)
+env = KOFEnvironmentDummy(device, frames_per_step=3, throttle=True)
 policy = Policy(env.observation_space.shape, env.action_space, base=CNNSimpleBase)
 policy.to(device)
 
+# import pdb; pdb.set_trace()
+policy = torch.load("./saved_models/kof_ppo/700.policy")
 
 algorithm = PPO(policy, clip_param =0.2, ppo_epoch=4, num_mini_batch=num_mini_batch,\
     value_loss_coef=0.5, entropy_coef=0.01, lr=2.5e-4, max_grad_norm=0.5, eps=1e-5)
@@ -42,7 +44,7 @@ episode_stages = []
 running_rewards = None
 
 
-logger = open("./logs/kof_ppo.log", 'w+')
+# logger = open("./logs/kof_ppo_2.log", 'w+')
 
 while(True):
 
@@ -88,23 +90,22 @@ while(True):
     rollouts.compute_returns(next_value, False, 0.99,
                                  0.95, False)
     
-    value_loss_epoch, action_loss_epoch, dist_entropy_epoch = algorithm.update(rollouts)
+    # value_loss_epoch, action_loss_epoch, dist_entropy_epoch = algorithm.update(rollouts)
 
     rollouts.after_update()
 
     if print_epoch:
         logs = "Epoch: {}, loss: {:.5f}, reward mean/min/max: {:.3f}/{:.3f}/{:.3f}, current/running: {:.3f}/{:.3f}, stage mean/min/max: {:.3f}/{:.3f}/{:.3f}, current: {:.3f}"\
-            .format(epoch, action_loss_epoch, np.mean(episode_rewards), np.min(episode_rewards)\
+            .format(epoch, 0, np.mean(episode_rewards), np.min(episode_rewards)\
             , np.max(episode_rewards), episode_rewards[-1], running_rewards, \
             np.mean(episode_stages), np.min(episode_stages), np.max(episode_stages), episode_stages[-1])
         print(logs)
-        logger.write(logs + '\n')
-        logger.flush()
+        # logger.write(logs + '\n')
+        # logger.flush()
     
-    if epoch % 100 == 0:
-        torch.save(policy, "./saved_models/kof_ppo/" + str(epoch) + ".policy")
-        torch.save(policy.base, "./saved_models/kof_ppo/" + str(epoch) + ".base")
-        torch.save(algorithm.optimizer, "./saved_models/kof_ppo/" + str(epoch) + ".optim")
+    # if epoch % 100 == 0:
+    #     torch.save(policy, "./saved_models/kof_ppo/" + str(epoch) + ".policy")
+    #     torch.save(policy.base, "./saved_models/kof_ppo/" + str(epoch) + ".base")
 
     epoch = epoch + 1
 

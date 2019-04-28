@@ -132,13 +132,21 @@ class CNNBase(NNBase):
 
         self.avgpool =  nn.AdaptiveAvgPool2d((1, 1))
         self.critic_linear = nn.Linear(hidden_size, 1)
+        
+        self.concat = nn.Sequential(
+            nn.Linear(512 + 5, hidden_size)
+            # nn.ReLU(inplace=True)
+        )
 
         self.train()
 
-    def forward(self, inputs, rnn_hxs, masks):
+    def forward(self, inputs, power, position, rnn_hxs, masks):
         x = self.features(inputs)
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+
+        x = torch.cat((x, power, position), 1)
+        x = self.concat(x)
 
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
@@ -165,8 +173,13 @@ class CNNSimpleBase(NNBase):
             # max pooling 1/2
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             # conv4 block: conv 3x3
-            nn.Conv2d(256, hidden_size, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
+        )
+
+        self.concat = nn.Sequential(
+            nn.Linear(512 + 5, hidden_size),
+            nn.ReLU(inplace=True)
         )
 
         self.avgpool =  nn.AdaptiveAvgPool2d((1, 1))
@@ -178,6 +191,9 @@ class CNNSimpleBase(NNBase):
         x = self.features(inputs)
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+
+        x = torch.cat((x, power, position), 1)
+        x = self.concat(x)
 
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)

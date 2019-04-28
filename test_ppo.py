@@ -1,7 +1,7 @@
 
 from envs_ref import make_vec_envs
 from policy import Policy
-from model import CNNBase, CNNAtariBase
+from model import CNNBase, CNNAtariBase, CNNSimpleBase
 import torch
 import random
 from storage import RolloutStorage
@@ -9,14 +9,14 @@ from ppo import PPO
 import numpy as np
 import os
 
-num_process = 8
+num_process = 4
 num_steps = 128
 num_mini_batch = 4
 device = torch.device('cuda:0')
 env = make_vec_envs('PongNoFrameskip-v4', 1, num_process,
                         0.95, './tmp/atari', device, False)
 
-policy = Policy(env.observation_space.shape, env.action_space, base=CNNAtariBase, base_kwargs={'input_channel': 4, 'recurrent': True})
+policy = Policy(env.observation_space.shape, env.action_space, base=CNNSimpleBase, base_kwargs={'input_channel': 4, 'recurrent': True})
 policy.to(device)
 
 

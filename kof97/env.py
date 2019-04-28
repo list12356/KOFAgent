@@ -39,7 +39,6 @@ class Environment(object):
         self.stage_done = False
         self.game_done = False
         self.round = 0
-        self.stage = 0
 
     # Runs a set of action steps over a series of time steps
     # Used for transitioning the emulator through non-learnable gameplay, aka. title screens, character selects
@@ -72,9 +71,8 @@ class Environment(object):
             data = self.emu.step([])
             frames.append(data['frame'])
         info = {}
-        info["stage"] = self.stage
-        info["positionP1"] = data["positionP1"]
-        info["positionP2"] = data["positionP2"]
+        info["positionP1"] = data["positionP1"] / 500.0
+        info["positionP2"] = data["positionP2"] / 500.0
         info["powerP1"] = data["powerP1"]
         return frames, info
     
@@ -117,7 +115,6 @@ class Environment(object):
         self.round_done = False
         self.stage_done = False
         self.round = 0
-        self.stage += 1
         return self.wait_for_fight_start()
 
     def new_game(self):
@@ -130,7 +127,6 @@ class Environment(object):
         self.stage_done = False
         self.game_done = False
         self.round = 0
-        self.stage = 0
         return self.wait_for_fight_start()
 
     # Checks whether the round or game has finished
@@ -181,9 +177,8 @@ class Environment(object):
 
                 data["rewards"] = rewards
                 data["frame"] = frames
-                info["stage"] = self.stage
-                info["positionP1"] = data["positionP1"]
-                info["positionP2"] = data["positionP2"]
+                info["positionP1"] = data["positionP1"] / 500.0
+                info["positionP2"] = data["positionP2"] / 500.0
                 info["powerP1"] = data["powerP1"]
                 return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done, info
             else:
