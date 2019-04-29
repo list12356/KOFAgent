@@ -63,12 +63,6 @@ def start_game(frame_ratio):
         {"wait": int(60/frame_ratio), "actions": [Actions.P1_BUTTON1]}]
 
 
-def next_stage(frame_ratio):
-    return [{"wait": int(360/frame_ratio), "actions": [Actions.P1_BUTTON1]},
-            {"wait": int(360/frame_ratio), "actions": [Actions.P1_BUTTON1]},
-            {"wait": int(60/frame_ratio), "actions": [Actions.P1_BUTTON1]}
-        ]
-
 def new_game(frame_ratio):
     return [
             {"wait": int(60/frame_ratio), "actions": [Actions.SERVICE]},

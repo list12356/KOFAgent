@@ -1,9 +1,10 @@
-from distributions import Categorical, DiagGaussian, Bernoulli
+from utils.utils import init
+from utils.distributions import Categorical, DiagGaussian, Bernoulli
+
 import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from utils import init
 
 class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):

@@ -38,6 +38,8 @@ class Environment(object):
         self.round_done = False
         self.stage_done = False
         self.game_done = False
+        self.wait_stage = False
+        self.wait_fight = False
         self.round = 0
 
     # Runs a set of action steps over a series of time steps
@@ -53,68 +55,15 @@ class Environment(object):
     # Returns the first few frames of gameplay
     def start(self):
         if self.throttle:
-            for i in range(int(250/self.frame_ratio)):
+            for i in range(int(50/self.frame_ratio)):
                 self.emu.step([])
         
-        # self.run_steps(set_difficulty(self.frame_ratio, self.difficulty))
         self.run_steps(start_game(self.frame_ratio))
         self.started = True
-        return self.wait_for_fight_start()
-
-    # Observes the game and waits for the fight to start
-    def wait_for_fight_start(self):
-        data = self.emu.step([])
-        while data["start"] == 0x08:
-            data = self.emu.step([])
-        frames = []
-        for i in range(self.frames_per_step):
-            data = self.emu.step([])
-            frames.append(data['frame'])
-        info = {}
-        info["positionP1"] = data["positionP1"] / 500.0
-        info["positionP2"] = data["positionP2"] / 500.0
-        info["powerP1"] = data["powerP1"]
-        return frames, info
-    
-    # wait until the next stage
-    def wait_for_stage(self):
-        data = self.emu.step([])
-        while data["start"] != 0x08:
-            data = self.emu.step([])
-
-    def reset(self):
-        if not self.started:
-            return self.start()
-        if self.game_done:
-            return self.new_game()
-        elif self.stage_done:
-            return self.next_stage()
-        elif self.round_done:
-            return self.next_round()
-        else:
-            raise EnvironmentError("Reset called while gameplay still running")
-            # do hard reset
-            # return self.new_game()
-
-    # To be called when a round finishes
-    # Performs the necessary steps to take the agent to the next round of gameplay
-    def next_round(self):
-        self.round_done = False
-        self.wait_for_stage()
-        # import pdb; pdb.set_trace()
-        self.expected_health = {"P1": 0x67, "P2": 0x67}
-        return self.wait_for_fight_start()
-
-    # To be called when a game finishes
-    # Performs the necessary steps to take the agent(s) to the next game and resets the necessary book keeping variables
-    def next_stage(self):
-        self.run_steps(next_stage(self.frame_ratio))
-        self.wait_for_stage()
-        self.expected_health = {"P1": 0x67, "P2": 0x67}
-        self.expected_wins = {"P1": 0, "P2": 0}
-        self.round_done = False
-        self.stage_done = False
-        self.round = 0
+        self.round_done = True
+        # self.stage_done = True
+        self.wait_stage = True
+        self.wait_fight = True
         return self.wait_for_fight_start()
 
     def new_game(self):
@@ -123,24 +72,90 @@ class Environment(object):
         self.run_steps(start_game(self.frame_ratio))
         self.expected_health = {"P1": 0x67, "P2": 0x67}
         self.expected_wins = {"P1": 0, "P2": 0}
-        self.round_done = False
-        self.stage_done = False
+        self.round_done = True
+        # self.stage_done = True
+        self.wait_stage = True
+        self.wait_fight = True
         self.game_done = False
         self.round = 0
         return self.wait_for_fight_start()
+            
+    def reset(self):
+        if not self.started:
+            return self.start()
+        # do hard reset
+        return self.new_game()
+    
+    def wait(self):
+        if not self.round_done and not self.stage_done and not self.game_done:
+            raise EnvironmentError("No need to wait here")
+        if self.wait_stage:
+            return self.wait_for_stage()
+
+        if self.wait_fight:
+            return self.wait_for_fight_start()
+        
+        raise EnvironmentError("No need to wait here")
+
+    def wait_for_fight_start(self):
+        data = self.emu.step([])
+        if data["start"] != 0x08:
+            self.round_done = False
+            self.stage_done = False
+            self.wait_fight = False
+            self.expected_health = {"P1": 0x67, "P2": 0x67}
+            self.round = data["round"]
+
+        frames = [data['frame']]
+        for i in range(self.frames_per_step - 1):
+            data = self.emu.step([])
+            frames.append(data['frame'])
+        info = {}
+        info["positionP1"] = data["positionP1"] / 500.0
+        info["positionP2"] = data["positionP2"] / 500.0
+        info["powerP1"] = data["powerP1"]
+        return frames, info
+
+    
+    def wait_for_stage(self):
+        self.stage_done = False
+        data = self.emu.step([Actions.P1_BUTTON1.value])
+        if data["start"] == 0x08:
+            self.wait_stage = False
+            self.wait_fight = True
+            self.expected_wins = {"P1": 0, "P2": 0}
+        
+        frames = [data['frame']]
+        for i in range(self.frames_per_step - 1):
+            data = self.emu.step([])
+            frames.append(data['frame'])
+        info = {}
+        info["positionP1"] = data["positionP1"] / 500.0
+        info["positionP2"] = data["positionP2"] / 500.0
+        info["powerP1"] = data["powerP1"]
+        return frames, info
 
     # Checks whether the round or game has finished
     def check_done(self, data):
         if data["round"] != self.round:
             self.round_done = True
+            self.wait_stage = True
+            self.wait_fight = True
             self.round = data["round"]
             if data["winsP1"] == 2:
                 self.stage_done = True
             if data["winsP2"] == 2:
                 self.game_done = True
+    
+    # def substeps(self, steps):
+    #     for action in steps:
+    #         data = self.emu.step([action.value for action in step_dict[action]])
+    #         if len(frames) < self.frames_per_step:
+    #             frames.append(data["frame"])
 
     # Steps the emulator along by the requested amount of frames required for the agent to provide actions
     def step(self, action):
+        fraps = 0
         if self.started:
             if not self.round_done and not self.stage_done and not self.game_done:
                 info = {}
@@ -151,13 +166,20 @@ class Environment(object):
                     data = self.emu.step([action.value for action in actions])
                     while len(frames) < self.frames_per_step:
                         data = self.emu.step([action.value for action in actions])
+                        fraps = fraps + 1
                         frames.append(data["frame"])
                 else:
                     steps = step_actions[action - 18]
                     for action in steps:
                         data = self.emu.step([action.value for action in step_dict[action]])
+                        fraps = fraps + 1
                         if len(frames) < self.frames_per_step:
                             frames.append(data["frame"])
+
+                    while len(frames) < self.frames_per_step:
+                        data = self.emu.step([action.value for action in step_dict[action]])
+                        fraps = fraps + 1
+                        frames.append(data["frame"])
 
                 self.check_done(data)
                 p1_diff = (self.expected_health["P1"] - data["healthP1"])
@@ -175,15 +197,16 @@ class Environment(object):
                 if abs(p2_diff-p1_diff) > 100:
                     rewards = {"P1": 0, "P2": 0}
 
-                data["rewards"] = rewards
-                data["frame"] = frames
                 info["positionP1"] = data["positionP1"] / 500.0
                 info["positionP2"] = data["positionP2"] / 500.0
                 info["powerP1"] = data["powerP1"]
-                return data["frame"], data["rewards"], self.round_done, self.stage_done, self.game_done, info
+                info["fraps"] = fraps
+                return frames, rewards, self.round_done, self.stage_done, self.game_done, info
             else:
-                # if self.round_done or self.stage_done:
-                raise EnvironmentError("Attempted to step while characters are not fighting")
+                frames, info = self.wait()
+                rewards = {"P1": 0, "P2": 0}
+                info["fraps"] = self.frames_per_step
+                return frames, rewards, self.round_done, self.stage_done, self.game_done, info
         else:
             raise EnvironmentError("Start must be called before stepping")
 

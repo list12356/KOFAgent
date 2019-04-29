@@ -1,9 +1,9 @@
-from distributions import Categorical, DiagGaussian, Bernoulli
 import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from utils import init
+from utils.utils import init
+from utils.distributions import Categorical, DiagGaussian, Bernoulli
 
 class Flatten(nn.Module):
     def forward(self, x):
