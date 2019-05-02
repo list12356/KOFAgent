@@ -16,14 +16,14 @@ class KOFEnvironmentDummy():
     def __init__(self, device, frames_per_step=3, throttle=False, monitor=False, stack_frame=False):
         roms_path = "./roms/"  # Replace this with the path to your ROMs
         self.venv = Environment("env1", roms_path, frame_ratio=3, frames_per_step=frames_per_step, difficulty=3, throttle=throttle)
-        self.observation_space = Box(0, 255, shape=[3, 75, 125]) # use stack here
-        self.action_space = Discrete(35)
+        self.observation_space = Box(0, 255, shape=[3, 190, 300]) # use stack here
+        self.action_space = Discrete(38)
         self.device = device
         self.episode_reward = 0
         self.monitor = monitor
         self.monitor_file = None
         if self.monitor:
-            self.monitor_file = open('./tmp/kof_env/env1.log', 'w+')
+            self.monitor_file = open('./tmp/kof_env/env1.log', 'a+')
         self.stage = 0
         self.fraps = 0
         self.elapsed_time = 0
@@ -40,6 +40,15 @@ class KOFEnvironmentDummy():
         frames, reward, round_done, stage_done, game_done, info = self.venv.step(int(actions))
         end = time.time()
 
+        frames = transform_frames(frames, self.device, self.stack_frame)
+        rewards = torch.FloatTensor([reward['P1']]).unsqueeze(dim=0) # for later parallel, the current num_process = 1
+        self.fraps += info['fraps']
+        self.elapsed_time += end - start
+        self.episode_reward += float(reward['P1'])
+        info['episode_reward'] = self.episode_reward
+        if self.monitor:
+            self.monitor_file.write(str(reward['P1']) + '\t' + str(int(actions)) + '\n')
+
         if stage_done:
             self.stage += 1
         if game_done:
@@ -55,15 +64,6 @@ class KOFEnvironmentDummy():
                 self.monitor_file.flush()
             self.reset()
 
-        frames = transform_frames(frames, self.device, self.stack_frame)
-        rewards = torch.FloatTensor([reward['P1']]).unsqueeze(dim=0) # for later parallel, the current num_process = 1
-        self.fraps += info['fraps']
-        self.elapsed_time += end - start
-        self.episode_reward += float(reward['P1'])
-        info['episode_reward'] = self.episode_reward
-        if self.monitor:
-            self.monitor_file.write(str(reward['P1']) + '\t' + str(int(actions)) + '\n')
-
         return frames, rewards, [round_done or game_done or stage_done], [info]
 
     def close(self):
@@ -74,7 +74,7 @@ class KOFEnvironment():
         roms_path = "./roms/"  # Replace this with the path to your ROMs
         self.venv = Environment(env_id, roms_path, frame_ratio=2, frames_per_step=frames_per_step, difficulty=3, render=render)
         self.observation_space = Box(0, 255, shape=[3, 224, 320, 3]) 
-        self.action_space = Discrete(35)
+        self.action_space = Discrete(38)
         self.device = device
         self.episode_reward = 0
         self.stage = 0
@@ -82,21 +82,25 @@ class KOFEnvironment():
         self.monitor_file = None
         self.env_id = env_id
         if self.monitor:
-            self.monitor_file = open('./tmp/kof_env/' + env_id + '.log', 'w+')
+            self.monitor_file = open('./tmp/kof_env/' + env_id + '.log', 'a+')
 
     def reset(self):
         self.episode_reward = 0
+        self.stage = 0
         frames, info = self.venv.reset()
         return frames
 
     def step(self, actions):
         # assert(actions.shape[0], 2)
-        start = time
         frames, reward, round_done, stage_done, game_done, info = self.venv.step(int(actions))
         
+        self.episode_reward += float(reward['P1'])
+        info['episode_reward'] = self.episode_reward
+        info['stage'] = self.stage
+
         if self.monitor:
             self.monitor_file.write(str(reward['P1']) + '\t' + str(int(actions)) + '\n')
-            
+        
         if stage_done:
             self.stage += 1
         if game_done:
@@ -104,10 +108,6 @@ class KOFEnvironment():
             self.stage = 0
             if self.monitor:
                 self.monitor_file.flush()
-
-        self.episode_reward += float(reward['P1'])
-        info['episode_reward'] = self.episode_reward
-        info['stage'] = self.stage
 
         return frames, reward, round_done or game_done or stage_done, info
     
@@ -119,7 +119,7 @@ class KOFEnvironmentShmem(VecEnvWrapper):
     def __init__(self, venv, device, stack_frame=False):
         """Return only every `skip`-th frame"""
         super(KOFEnvironmentShmem, self).__init__(venv)
-        self.observation_space = Box(0, 255, shape=[3, 75, 125])
+        self.observation_space = Box(0, 255, shape=[3, 190, 300])
         self.device = device
         self.fraps = 0
         self.elapsed_time = 0

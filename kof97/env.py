@@ -161,7 +161,7 @@ class Environment(object):
                 info = {}
                 data = {}
                 frames = []
-                if action < 18:
+                if action < 20:
                     actions = normal_actions[action]
                     data = self.emu.step([action.value for action in actions])
                     while len(frames) < self.frames_per_step:
@@ -169,7 +169,7 @@ class Environment(object):
                         fraps = fraps + 1
                         frames.append(data["frame"])
                 else:
-                    steps = step_actions[action - 18]
+                    steps = step_actions[action - 20]
                     for action in steps:
                         data = self.emu.step([action.value for action in step_dict[action]])
                         fraps = fraps + 1
@@ -177,7 +177,7 @@ class Environment(object):
                             frames.append(data["frame"])
 
                     while len(frames) < self.frames_per_step:
-                        data = self.emu.step([action.value for action in step_dict[action]])
+                        data = self.emu.step([act.value for act in step_dict[steps[-1]]])
                         fraps = fraps + 1
                         frames.append(data["frame"])
 

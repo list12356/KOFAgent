@@ -3,11 +3,13 @@ from model.policy import Policy
 from model.base import CNNSimpleBase
 from utils.storage import RolloutStorage
 from utils.cmd_utils import cmd_arg_parser
+from utils.utils import add_noise
 
 import torch
 import random
 import numpy as np
 import sys
+import os
 
 def main(args):
     parser = cmd_arg_parser()
@@ -17,6 +19,13 @@ def main(args):
     num_process = args.num_process
     
     device = torch.device("cuda:0")
+
+    save_path = './saved_models/' + args.exp_name + '/'
+    log_dir = './logs/' + args.exp_name + '/'
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
     if num_process > 1:
         env = make_vec_envs(num_process, device, frames_per_step=args.frames_per_step, \
@@ -48,8 +57,18 @@ def main(args):
     episode_rewards = []
     episode_stages = []
     running_rewards = None
-    
-    policy.base = torch.load(args.restore_path)
+    force_explore = False
+    # import pdb; pdb.set_trace()
+
+    if args.restore:
+        if args.restore_cnn:
+            policy.base = torch.load(args.restore_path + str(args.restore) + '.base')
+        else:
+            policy = torch.load(args.restore_path + str(args.restore) + '.policy')
+            algorithm.optimizer = torch.load(args.restore_path + str(args.restore) + '.optim')
+            epoch = args.restore
+
+    logger = open(log_dir + "/kof_ppo.log", 'a+')
 
     while(True):
         print_epoch = False
@@ -72,6 +91,10 @@ def main(args):
                 [[info['positionP1'], info['positionP2']] for info in infos]
             )
 
+            # import pdb; pdb.set_trace()
+            if force_explore:
+                frames, power, position = add_noise(frames, power, position, args.explore_scale)
+
             rollouts.insert(frames, rnn_hxs, action, action_log_probs, \
                             value, reward, masks, bad_masks, power, position)
 
@@ -89,6 +112,12 @@ def main(args):
                     
                     episode_rewards.append(episode_reward/num_process)
                     episode_stages.append(episode_stage/num_process)
+                    
+                    # if episode_stage/num_process < 1.0 and args.explore:
+                    #     force_explore = True
+                    # else:
+                    #     force_explore = False
+
                     if running_rewards != None:
                         running_rewards = episode_reward/num_process * 0.01 + running_rewards
                     else:
@@ -100,7 +129,7 @@ def main(args):
                 rollouts.obs[-1], rollouts.power[-1], rollouts.position[-1], \
                 rollouts.recurrent_hidden_states[-1], rollouts.masks[-1]).detach()
         
-        rollouts.compute_returns(next_value, False, 0.99,
+        rollouts.compute_returns(next_value, True, 0.99,
                                     0.95, False)
         
         rollouts.after_update()
@@ -111,6 +140,8 @@ def main(args):
                 , np.max(episode_rewards), episode_rewards[-1], running_rewards, \
                 np.mean(episode_stages), np.min(episode_stages), np.max(episode_stages), episode_stages[-1])
             print(logs)
+            logger.write(logs + '\n')
+            logger.flush()
 
         epoch = epoch + 1
 

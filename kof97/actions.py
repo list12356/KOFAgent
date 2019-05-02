@@ -77,12 +77,13 @@ class SActions(Enum):
 
 
 normal_actions = [
-
+[],
 [Actions.P1_BUTTON1, Actions.P1_BUTTON2],
 [Actions.P1_BUTTON3, Actions.P1_BUTTON4],
 [Actions.P1_BUTTON1, Actions.P1_BUTTON2, Actions.P1_BUTTON3],
 [Actions.P1_DOWN],
 [Actions.P1_DOWN, Actions.P1_RIGHT],
+[Actions.P1_DOWN, Actions.P1_LEFT],
 [Actions.P1_UP],
 [Actions.P1_UP, Actions.P1_LEFT],
 [Actions.P1_UP, Actions.P1_RIGHT],
@@ -99,6 +100,7 @@ normal_actions = [
 ]
 
 step_dict = {
+    0: [],
     1: [Actions.P1_DOWN, Actions.P1_LEFT],
     2: [Actions.P1_DOWN],
     3: [Actions.P1_DOWN, Actions.P1_RIGHT],

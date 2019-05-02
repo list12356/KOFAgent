@@ -200,6 +200,63 @@ class CNNSimpleBase(NNBase):
 
         return self.critic_linear(x), x, rnn_hxs
 
+class CNN2blockBase(NNBase):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=512, input_channel=3):
+        super(CNNSimpleBase, self).__init__(recurrent, hidden_size, hidden_size)
+
+        self.features = nn.Sequential(
+            # conv1 block: 3x conv 3x3
+            nn.Conv2d(input_channel, 32, kernel_size=7, stride=4, padding=3),
+            nn.ReLU(inplace=True),
+            # max pooling 1/2
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=1),
+            # conv2 block: simple bottleneck
+            nn.Conv2d(32, 32, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 128, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
+            # max pooling 1/2
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            # conv3 block: simple bottleneck
+            nn.Conv2d(128, 64, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
+            # max pooling 1/2
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            # conv4 block: conv 3x3
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+        )
+
+        self.concat = nn.Sequential(
+            nn.Linear(256 + 5, hidden_size),
+            nn.ReLU(inplace=True)
+        )
+
+        self.avgpool =  nn.AdaptiveAvgPool2d((1, 1))
+        self.critic_linear = nn.Linear(hidden_size, 1)
+
+        self.train()
+
+    def forward(self, inputs, power, position, rnn_hxs, masks):
+        x = self.features(inputs)
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
+
+        x = torch.cat((x, power, position), 1)
+        x = self.concat(x)
+
+        if self.is_recurrent:
+            x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
+
+        return self.critic_linear(x), x, rnn_hxs
+
+
 class CNNAtariBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=512, input_channel=3):
         super(CNNAtariBase, self).__init__(recurrent, hidden_size, hidden_size)

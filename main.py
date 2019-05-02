@@ -4,6 +4,7 @@ from model.policy import Policy
 from model.base import CNNBase, CNNSimpleBase
 from utils.storage import RolloutStorage
 from utils.cmd_utils import cmd_arg_parser
+from utils.utils import update_linear_schedule, add_noise
 
 import torch
 import random
@@ -42,7 +43,7 @@ def main(args):
 
 
     algorithm = PPO(policy, clip_param=0.2, ppo_epoch=args.ppo_epoch, num_mini_batch=args.num_mini_batch,\
-        value_loss_coef=0.5, entropy_coef=0.01, lr=2.5e-4, max_grad_norm=0.5, eps=1e-5)
+        value_loss_coef=0.5, entropy_coef=0.01, lr=args.lr, max_grad_norm=0.5, eps=1e-5)
     rollouts = RolloutStorage(num_steps, num_process, env.observation_space.shape, env.action_space,
                                 policy.recurrent_hidden_state_size)
 
@@ -66,11 +67,26 @@ def main(args):
     episode_rewards = []
     episode_stages = []
     running_rewards = None
+    force_explore = False
 
-    logger = open(log_dir + "/kof_ppo.log", 'w+')
+    if args.restore:
+        if args.restore_cnn:
+            policy.base = torch.load(args.restore_path + str(args.restore) + '.base')
+        else:
+            policy = torch.load(args.restore_path + str(args.restore) + '.policy')
+            algorithm.optimizer = torch.load(args.restore_path + str(args.restore) + '.optim')
+            epoch = args.restore
+
+    logger = open(log_dir + "/kof_ppo.log", 'a+')
+
+    num_updates = 3000
 
     while(True):
+        if args.use_linear_lr_decay:
+            update_linear_schedule(algorithm.optimizer, epoch, num_updates, args.lr)
+        
         print_epoch = False
+
         for step in range(num_steps):
             with torch.no_grad():
                 value, action, action_log_probs, rnn_hxs = policy.step(rollouts.obs[step], rollouts.power[step], rollouts.position[step])
@@ -90,6 +106,9 @@ def main(args):
                 [[info['positionP1'], info['positionP2']] for info in infos]
             )
 
+            if force_explore:
+                frames, power, position = add_noise(frames, power, position, args.explore_scale)
+
             rollouts.insert(frames, rnn_hxs, action, action_log_probs, \
                         value, reward, masks, bad_masks, power, position)
                         
@@ -107,6 +126,12 @@ def main(args):
                     
                     episode_rewards.append(episode_reward/num_process)
                     episode_stages.append(episode_stage/num_process)
+
+                    if episode_stage/num_process < 1.0 and args.explore and epoch > 500:
+                        force_explore = True
+                    else:
+                        force_explore = False
+
                     if running_rewards != None:
                         running_rewards = episode_reward/num_process * 0.01 + running_rewards
                     else:
@@ -118,7 +143,7 @@ def main(args):
                 rollouts.obs[-1], rollouts.power[-1], rollouts.position[-1], \
                 rollouts.recurrent_hidden_states[-1], rollouts.masks[-1]).detach()
         
-        rollouts.compute_returns(next_value, False, 0.99,
+        rollouts.compute_returns(next_value, True, 0.99,
                                     0.95, False)
         
         value_loss_epoch, action_loss_epoch, dist_entropy_epoch = algorithm.update(rollouts)

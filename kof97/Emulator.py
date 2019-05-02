@@ -86,7 +86,7 @@ class Emulator(object):
         self.console.writeln('s = manager:machine().screens[":screen"]')
         self.console.writeln('mem = manager:machine().devices[":maincpu"].spaces["program"]')
         self.console.writeln('releaseQueue = {}')
-        self.console.writeln('releaseSpecialQueue = {}')
+        # self.console.writeln('releaseSpecialQueue = {}')
 
     def wait_for_resource_registration(self, max_attempts=10):
         screen_registered = False

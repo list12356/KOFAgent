@@ -41,14 +41,16 @@ def transform_frames(frames, device, stack=False):
     else:
         return transform_colored(frames, device)
 
+mean=[0.485, 0.456, 0.406]
+std=[0.229, 0.224, 0.225]
 
 def transform_colored(frames, device):
     # only get the first frame
     frame = frames[-1]
-    frame = frame[20:210, 9:312]  # crop
-    frame = resize_image(frame.astype(np.uint8), (125, 75))
+    frame = frame[20:210, 12:312]  # crop
+    # frame = resize_image(frame.astype(np.uint8), (125, 75))
     frame = frame / 255
-    frame = frame - frame.mean()
+    frame = (frame - mean) / std
     frame = frame.transpose(2, 0, 1)
     return torch.FloatTensor(frame).to(device).unsqueeze(0)
 
@@ -56,10 +58,23 @@ def transform_grayscale(frames, device):
     # get all frame and make gray scale
     x = []
     for frame in frames:
-        frame = frame[20:210, 9:312]  # crop
+        frame = frame[20:210, 12:312]  # crop
         frame = 0.2989 * frame[:, :, 0] + 0.5870 * frame[:, :, 1] + 0.1140 * frame[:, :, 2]  # greyscale
-        frame = frame[::3, ::3]  # downsample
+        # frame = resize_image(frame.astype(np.uint8), (125, 75))  # downsample
+        # import pdb; pdb.set_trace()
         frame = frame / 255
-        frame = frame - frame.mean()
-        x.append(torch.FloatTensor(frame.reshape(1, 61, 120)).to(device))
-    return torch.stack(x, dim=1)
+        frame = frame - 0.458
+        x.append(torch.FloatTensor(frame).to(device))
+    return torch.stack(x, dim=0).unsqueeze(0)
+
+def add_noise(frames, power, position, scale=0.2):
+    frames = torch.Tensor(np.random.normal(0, scale, frames.shape)).to(frames.device) + frames
+    power = torch.Tensor(np.random.normal(0, scale, power.shape)).to(power.device) + power
+    position = torch.Tensor(np.random.normal(0, scale, position.shape)).to(position.device) + position
+    return frames, power, position
+
+def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
+    """Decreases the learning rate linearly"""
+    lr = initial_lr - (initial_lr * (epoch / float(total_num_epochs)))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
