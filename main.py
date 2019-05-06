@@ -33,17 +33,17 @@ def main(args):
 
     # env = KOFEnvironmentDummy(device)
     if num_process > 1:
-        env = make_vec_envs(num_process, device, frames_per_step=args.frames_per_step, \
+        env = make_vec_envs(num_process, device, frames_per_step=args.frames_per_step, frame_ratio=args.frame_ratio, \
             monitor= args.monitor, render=args.render, stack_frame=args.stack_frame)
     else:
-        env = KOFEnvironmentDummy(device, frames_per_step=args.frames_per_step, \
+        env = KOFEnvironmentDummy(device, frames_per_step=args.frames_per_step, frame_ratio=args.frame_ratio, \
             monitor=args.monitor, throttle=args.throttle, stack_frame=args.stack_frame)
     policy = Policy(env.observation_space.shape, env.action_space, base=CNNSimpleBase)
     policy.to(device)
 
 
     algorithm = PPO(policy, clip_param=0.2, ppo_epoch=args.ppo_epoch, num_mini_batch=args.num_mini_batch,\
-        value_loss_coef=0.5, entropy_coef=0.01, lr=args.lr, max_grad_norm=0.5, eps=1e-5)
+        value_loss_coef=0.5, entropy_coef=args.entropy_coef, lr=args.lr, max_grad_norm=0.5, eps=1e-5)
     rollouts = RolloutStorage(num_steps, num_process, env.observation_space.shape, env.action_space,
                                 policy.recurrent_hidden_state_size)
 
@@ -73,6 +73,7 @@ def main(args):
         if args.restore_cnn:
             policy.base = torch.load(args.restore_path + str(args.restore) + '.base')
         else:
+            # import pdb; pdb.set_trace()
             policy = torch.load(args.restore_path + str(args.restore) + '.policy')
             algorithm.optimizer = torch.load(args.restore_path + str(args.restore) + '.optim')
             epoch = args.restore
@@ -127,13 +128,13 @@ def main(args):
                     episode_rewards.append(episode_reward/num_process)
                     episode_stages.append(episode_stage/num_process)
 
-                    if episode_stage/num_process < 1.0 and args.explore and epoch > 500:
+                    if episode_stage/num_process < 0.75 and args.explore and epoch > 500:
                         force_explore = True
                     else:
                         force_explore = False
 
                     if running_rewards != None:
-                        running_rewards = episode_reward/num_process * 0.01 + running_rewards
+                        running_rewards = episode_reward/num_process * 0.01 + running_rewards * 0.99
                     else:
                         running_rewards = episode_reward/num_process
                     break

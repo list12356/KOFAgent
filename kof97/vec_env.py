@@ -13,9 +13,9 @@ import time
 
 
 class KOFEnvironmentDummy():
-    def __init__(self, device, frames_per_step=3, throttle=False, monitor=False, stack_frame=False):
+    def __init__(self, device, frames_per_step=3, frame_ratio=3, throttle=False, monitor=False, stack_frame=False):
         roms_path = "./roms/"  # Replace this with the path to your ROMs
-        self.venv = Environment("env1", roms_path, frame_ratio=3, frames_per_step=frames_per_step, difficulty=3, throttle=throttle)
+        self.venv = Environment("env1", roms_path, frame_ratio=frame_ratio, frames_per_step=frames_per_step, difficulty=3, throttle=throttle)
         self.observation_space = Box(0, 255, shape=[3, 190, 300]) # use stack here
         self.action_space = Discrete(38)
         self.device = device
@@ -70,9 +70,9 @@ class KOFEnvironmentDummy():
         self.venv.close()
 
 class KOFEnvironment():
-    def __init__(self, env_id, device, frames_per_step=3, monitor=False, render=True):
+    def __init__(self, env_id, device, frames_per_step=3, frame_ratio=3, monitor=False, render=True):
         roms_path = "./roms/"  # Replace this with the path to your ROMs
-        self.venv = Environment(env_id, roms_path, frame_ratio=2, frames_per_step=frames_per_step, difficulty=3, render=render)
+        self.venv = Environment(env_id, roms_path, frame_ratio=frame_ratio, frames_per_step=frames_per_step, difficulty=3, render=render, throttle=False)
         self.observation_space = Box(0, 255, shape=[3, 224, 320, 3]) 
         self.action_space = Discrete(38)
         self.device = device
@@ -162,21 +162,21 @@ class KOFEnvironmentShmem(VecEnvWrapper):
         return obs, reward, done, infos
 
 
-def make_env(env_id, device, frames_per_step=3, monitor=False, render=True):
+def make_env(env_id, device, frames_per_step=3, frame_ratio=3, monitor=False, render=True):
     def _thunk():
-        env = KOFEnvironment(env_id, device, frames_per_step=frames_per_step, monitor=monitor, render=render)
+        env = KOFEnvironment(env_id, device, frames_per_step=frames_per_step, frame_ratio=frame_ratio, monitor=monitor, render=render)
 
         return env
 
     return _thunk
 
 
-def make_vec_envs(num_processes, device, frames_per_step=3, monitor=False, render=True, stack_frame=False):
+def make_vec_envs(num_processes, device, frames_per_step=3, frame_ratio=3, monitor=False, render=True, stack_frame=False):
     envs = [
-        make_env("env" + str(i), device, frames_per_step, monitor, render)
+        make_env("env" + str(i), device, frames_per_step, frame_ratio, monitor, render)
         for i in range(num_processes - 1)
     ]
-    envs.append(make_env("env" + str(num_processes), device, frames_per_step, monitor, True))
+    envs.append(make_env("env" + str(num_processes), device, frames_per_step, frame_ratio, monitor, True))
 
     envs = ShmemVecEnv(envs, context='fork')
     envs = KOFEnvironmentShmem(envs, device, stack_frame=stack_frame)

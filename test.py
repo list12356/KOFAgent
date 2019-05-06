@@ -31,7 +31,7 @@ def main(args):
         env = make_vec_envs(num_process, device, frames_per_step=args.frames_per_step, \
             monitor= args.monitor, render=args.render, stack_frame=args.stack_frame)
     else:
-        env = KOFEnvironmentDummy(device, frames_per_step=args.frames_per_step, \
+        env = KOFEnvironmentDummy(device, frames_per_step=args.frames_per_step, frame_ratio=args.frame_ratio, \
             monitor=args.monitor, throttle=args.throttle, stack_frame=args.stack_frame)
     policy = Policy(env.observation_space.shape, env.action_space, base=CNNSimpleBase)
     policy.to(device)
@@ -65,7 +65,7 @@ def main(args):
             policy.base = torch.load(args.restore_path + str(args.restore) + '.base')
         else:
             policy = torch.load(args.restore_path + str(args.restore) + '.policy')
-            algorithm.optimizer = torch.load(args.restore_path + str(args.restore) + '.optim')
+            # algorithm.optimizer = torch.load(args.restore_path + str(args.restore) + '.optim')
             epoch = args.restore
 
     logger = open(log_dir + "/kof_ppo.log", 'a+')
@@ -119,7 +119,7 @@ def main(args):
                     #     force_explore = False
 
                     if running_rewards != None:
-                        running_rewards = episode_reward/num_process * 0.01 + running_rewards
+                        running_rewards = episode_reward/num_process * 0.01 + running_rewards*0.99
                     else:
                         running_rewards = episode_reward/num_process
                     break

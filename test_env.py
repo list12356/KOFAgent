@@ -1,6 +1,6 @@
 from kof97.env import Environment
 
-env = Environment("env_01", roms_path="./roms", throttle=True)
+env = Environment("env_01", roms_path="./roms", throttle=True, frame_ratio=5, frames_per_step=3)
 env.reset()
 
 import numpy as np
@@ -13,7 +13,7 @@ stages = 0
 while(True):
     # action = np.random.randint(17)
     # action = np.random.randint(35)
-    action = 32
+    action = 23
     start = time.time()
     frame, reward, round_done, stage_done, game_done, info = env.step(action)
     end = time.time()

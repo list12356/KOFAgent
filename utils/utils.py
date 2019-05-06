@@ -26,10 +26,10 @@ def init(module, weight_init, bias_init, gain=1):
     bias_init(module.bias.data)
     return module
 
-def resize_image(img, new_size):
+def resize_image(img, new_size, resample=Image.NEAREST):
 
     pil_img = Image.fromarray(img)
-    pil_img = pil_img.resize(new_size, resample=Image.NEAREST)
+    pil_img = pil_img.resize(new_size, resample=resample)
     img = np.array(pil_img)
 
     return img
@@ -68,9 +68,12 @@ def transform_grayscale(frames, device):
     return torch.stack(x, dim=0).unsqueeze(0)
 
 def add_noise(frames, power, position, scale=0.2):
-    frames = torch.Tensor(np.random.normal(0, scale, frames.shape)).to(frames.device) + frames
-    power = torch.Tensor(np.random.normal(0, scale, power.shape)).to(power.device) + power
-    position = torch.Tensor(np.random.normal(0, scale, position.shape)).to(position.device) + position
+    frames_noised = torch.Tensor(np.random.normal(0, scale, frames.shape)).to(frames.device) + frames
+    frames = torch.max(torch.min(frames_noised, frames + scale), frames - scale)
+    power_noised = torch.Tensor(np.random.normal(0, scale, power.shape)).to(power.device) + power
+    power = torch.max(torch.min(power_noised, power + scale), power - scale)
+    position_noised = torch.Tensor(np.random.normal(0, scale, position.shape)).to(position.device) + position
+    position = torch.max(torch.min(position_noised, position + scale), position - scale)
     return frames, power, position
 
 def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
