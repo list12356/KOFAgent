@@ -1,3 +1,5 @@
+This repository is for CS838 project. Training an AI player for King of Fighters 97 arcade game. Inspired while I play game with my friend at home and by https://github.com/M-J-Murray/SFAgents and using the https://github.com/M-J-Murray/MAMEToolkit tool kit.
+
 ##Requirement
 
 install the openai baselines https://github.com/M-J-Murray/MAMEToolkit
